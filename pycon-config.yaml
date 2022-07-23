@@ -1,0 +1,35 @@
+source:
+  uri: $SOURCE_DATABASE_URL
+  version: 11
+
+destination:
+  uri: $DESTINATION_DB_URL
+  version: 11
+
+skip:
+  - django_session
+  - invoices_address
+  - invoices_invoice
+  - invoices_item
+  - invoices_sender
+  - orders_order
+  - orders_orderitem
+  - social_auth_association
+  - social_auth_code
+  - social_auth_nonce
+  - social_auth_partial
+  - social_auth_usersocialauth
+  - tickets_ticket
+  - tickets_ticketquestion
+  - tickets_ticketquestionchoice
+  - tickets_useranswer
+  - api_apitoken
+  - volunteers_notifications_volunteerdevice
+
+transformers:
+  - proposals.sql
+  - grants.sql
+
+upload:
+  name: pycon
+  bucket: $BUCKET_NAME

@@ -1,0 +1,84 @@
+name: Restore staging DB
+
+on:
+  workflow_dispatch:
+
+jobs:
+  restore-staging-db:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.aws_access_key_id }}
+          aws-secret-access-key: ${{ secrets.aws_secret_access_key }}
+          aws-region: eu-central-1
+      - name: Open tunnel to DB
+        run: |
+          docker run \
+            --rm \
+            -d \
+            -e AWS_ACCESS_KEY_ID \
+            -e AWS_SECRET_ACCESS_KEY \
+            -e PORT_7777_LICENSE \
+            -p 7777:7777 \
+            port7777/7777:1 \
+            --region=eu-central-1 \
+            --database=pythonit-pastaporto \
+            --ttl=1 \
+            --verbose
+        env:
+          PORT_7777_LICENSE: ${{ secrets.PORT_7777_LICENSE }}
+      - name: Fetch DB credentials
+        id: db-credentials
+        run: |
+          OUTPUT=$(aws secretsmanager get-secret-value --secret-id $SECRET_ID)
+          PASSWORD=$(echo $OUTPUT | jq -r '.SecretString | fromjson | .password')
+          USERNAME=$(echo $OUTPUT | jq -r '.SecretString | fromjson | .username')
+          echo "::add-mask::$PASSWORD"
+          echo "::add-mask::$USERNAME"
+          echo "::set-output name=password::$PASSWORD"
+          echo "::set-output name=username::$USERNAME"
+        env:
+          SECRET_ID: ${{ secrets.STAGING_RDS_CREDENTIALS_SECRET_ID }}
+
+      - uses: actions/checkout@v3
+      - name: Install poetry
+        run: pipx install poetry
+      - uses: actions/setup-python@v4.1.0
+        id: setup-python
+        with:
+          python-version: "3.10"
+          cache: "poetry"
+      - run: poetry env use $(which python)
+      - run: poetry install
+
+      - name: Wait for tunnel
+        timeout-minutes: 10
+        run: while ! pg_isready -h 127.0.0.1 -p 7777; do sleep 1; done;
+
+      - name: Restore PyCon Backend database
+        run: poetry run python main.py restore
+        env:
+          DESTINATION_DB_URL: postgres://${{ steps.db-credentials.outputs.username }}:${{ steps.db-credentials.outputs.password }}@127.0.0.1:7777/pastaportobackend
+          BUCKET_NAME: ${{ secrets.BUCKET_NAME }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+          CONFIG_FILE: pycon-config.yaml
+
+      - name: Restore Users Backend database
+        run: poetry run python main.py restore
+        env:
+          DESTINATION_DB_URL: postgres://${{ steps.db-credentials.outputs.username }}:${{ steps.db-credentials.outputs.password }}@127.0.0.1:7777/users
+          BUCKET_NAME: ${{ secrets.BUCKET_NAME }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+          CONFIG_FILE: users-config.yaml
+
+      - name: Restore Asssociation Backend database
+        run: poetry run python main.py restore
+        env:
+          DESTINATION_DB_URL: postgres://${{ steps.db-credentials.outputs.username }}:${{ steps.db-credentials.outputs.password }}@127.0.0.1:7777/association
+          BUCKET_NAME: ${{ secrets.BUCKET_NAME }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+          CONFIG_FILE: association-config.yaml
+
