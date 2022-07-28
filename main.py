@@ -8,6 +8,7 @@ from pathlib import Path
 from rich import print
 import boto3
 from cryptography.fernet import Fernet
+import dsnparse
 
 app = typer.Typer()
 
@@ -154,6 +155,13 @@ def anonymise():
     print("=> Restoring database in a temporary database to anonymise")
     temporary_database = None
 
+    source_uri = config['source']['uri']
+    parsed_uri = dsnparse.parse(source_uri)
+    dbname = parsed_uri.paths[0]
+
+    if dbname == 'productionbackend':
+        dbname = 'pastaportobackend'
+
     try:
         temporary_database = docker_client.containers.run(
             f"postgres:{psql_version}",
@@ -169,14 +177,14 @@ def anonymise():
             },
             environment={
                 'POSTGRES_USER': 'anonymise',
-                'POSTGRES_DB': 'anonymise',
+                'POSTGRES_DB': dbname,
                 'POSTGRES_PASSWORD': 'anonymise',
             }
         )
         sleep(2)
 
         destination_port = temporary_database.attrs['HostConfig']['PortBindings']['5432/tcp'][0]['HostPort']
-        anonymise_db_connection_string = f'postgres://anonymise:anonymise@127.0.0.1:{destination_port}/anonymise'
+        anonymise_db_connection_string = f'postgres://anonymise:anonymise@127.0.0.1:{destination_port}/{dbname}'
 
         restore(
             to=anonymise_db_connection_string,
