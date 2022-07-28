@@ -197,7 +197,7 @@ def anonymise():
 
         print("=> Running transformers")
         temporary_database.exec_run(
-            f'psql -U anonymise -d anonymise -q -f functions.sql {files_arg} -f drop-functions.sql',
+            f'psql -U anonymise -d {dbname} -q -f functions.sql {files_arg} -f drop-functions.sql',
             environment={
                 'PGPASSWORD': 'anonymise'
             },
