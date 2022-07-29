@@ -243,9 +243,13 @@ def restore(to: str | None = None, name: str | None = None):
 
     dbname = config['destination']['name']
 
+    drop_db = ''
+    if dbname != 'pastaportobackend':
+        drop_db = f'-c "DROP DATABASE IF EXISTS {dbname} WITH (FORCE);"'
+
     docker_client.containers.run(
         f"postgres:{psql_version}",
-        f'psql -c "DROP DATABASE IF EXISTS {dbname} WITH (FORCE);" -f /dumps/{name}.sql --dbname={connection_string}',
+        f'psql {drop_db} -f /dumps/{name}.sql --dbname={connection_string}',
         auto_remove=True,
         name='restore-db',
         network_mode='host',
