@@ -1,10 +1,10 @@
 source:
   uri: $SOURCE_DATABASE_URL
-  version: 11
+  version: 13
 
 destination:
   uri: $DESTINATION_DB_URL
-  version: 11
+  version: 13
 
 upload:
   name: association

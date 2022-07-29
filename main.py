@@ -243,6 +243,12 @@ def restore(to: str | None = None, name: str | None = None):
     dumps_folder = str(Path('dumps').resolve())
     transformers_folder = str(Path('transformers').resolve())
 
+    parsed_uri = dsnparse.parse(connection_string)
+    dbname = parsed_uri.paths[0]
+
+    if dbname == 'productionbackend':
+        dbname = 'pastaportobackend'
+
     docker_client.containers.run(
         f"postgres:{psql_version}",
         f"psql -f /dumps/{name}.sql --dbname={connection_string}",

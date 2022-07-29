@@ -1,2 +1,4 @@
 dumps/*
 !dumps/.gitkeep
+__pycache__/**
+*.pyo
