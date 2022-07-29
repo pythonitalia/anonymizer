@@ -18,6 +18,7 @@ class UploadDict(TypedDict):
 
 class PsqlUrlDict(TypedDict):
     uri: str
+    name: str
     version: Literal[11, 12, 13, 14]
 
 class ConfigDict(TypedDict):
@@ -68,9 +69,6 @@ def dump(from_: str | None=None, transform: bool=True, dump_name: str='dump'):
 
     dumps_folder = str(Path('dumps').resolve())
 
-    # for dump_file in glob.glob(f'{dumps_folder}/*.sql'):
-    #     Path(dump_file).unlink()
-
     print(f"=> Creating dump of database ({dump_name})")
 
     skips = ' '.join([
@@ -81,7 +79,7 @@ def dump(from_: str | None=None, transform: bool=True, dump_name: str='dump'):
     docker_client = docker.from_env()
     docker_client.containers.run(
         f"postgres:{psql_version}",
-        f"pg_dump --if-exists --create --disable-triggers --no-owner --clean --dbname={connection_string} {skips} --file=/dumps/{dump_name}.sql",
+        f"pg_dump --create --disable-triggers --no-owner --clean --dbname={connection_string} {skips} --file=/dumps/{dump_name}.sql",
         auto_remove=True,
         network_mode='host',
         volumes={
@@ -243,15 +241,11 @@ def restore(to: str | None = None, name: str | None = None):
     dumps_folder = str(Path('dumps').resolve())
     transformers_folder = str(Path('transformers').resolve())
 
-    parsed_uri = dsnparse.parse(connection_string)
-    dbname = parsed_uri.paths[0]
-
-    if dbname == 'productionbackend':
-        dbname = 'pastaportobackend'
+    dbname = config['destination']['name']
 
     docker_client.containers.run(
         f"postgres:{psql_version}",
-        f"psql -f /dumps/{name}.sql --dbname={connection_string}",
+        f'psql -c "DROP DATABASE IF EXISTS {dbname} WITH (FORCE);" -f /dumps/{name}.sql --dbname={connection_string}',
         auto_remove=True,
         name='restore-db',
         network_mode='host',

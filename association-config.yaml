@@ -4,6 +4,7 @@ source:
 
 destination:
   uri: $DESTINATION_DB_URL
+  name: association
   version: 13
 
 upload:

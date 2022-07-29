@@ -4,6 +4,7 @@ source:
 
 destination:
   uri: $DESTINATION_DB_URL
+  name: productionbackend
   version: 13
 
 skip:
