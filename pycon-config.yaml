@@ -4,7 +4,7 @@ source:
 
 destination:
   uri: $DESTINATION_DB_URL
-  name: pastaportobackend
+  name: pycon
   version: 13
 
 skip:

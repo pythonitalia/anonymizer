@@ -20,7 +20,7 @@ jobs:
             db: association
           - config: pycon-config.yaml
             name: pycon
-            db: productionbackend
+            db: pycon
     steps:
       - uses: actions/checkout@v3
       - name: Configure AWS credentials

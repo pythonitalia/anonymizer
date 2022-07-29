@@ -157,9 +157,6 @@ def anonymise():
     parsed_uri = dsnparse.parse(source_uri)
     dbname = parsed_uri.paths[0]
 
-    if dbname == 'productionbackend':
-        dbname = 'pastaportobackend'
-
     try:
         temporary_database = docker_client.containers.run(
             f"postgres:{psql_version}",
