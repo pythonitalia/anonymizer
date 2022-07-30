@@ -79,7 +79,7 @@ def dump(from_: str | None=None, transform: bool=True, dump_name: str='dump'):
     docker_client = docker.from_env()
     docker_client.containers.run(
         f"postgres:{psql_version}",
-        f"pg_dump --create --disable-triggers --no-owner --clean --dbname={connection_string} {skips} --file=/dumps/{dump_name}.sql",
+        f"pg_dump --inserts --create --disable-triggers --no-owner --clean --dbname={connection_string} {skips} --file=/dumps/{dump_name}.sql",
         auto_remove=True,
         network_mode='host',
         volumes={
@@ -205,8 +205,6 @@ def anonymise():
             workdir="/transformers",
             demux=True
         )
-
-        # print('Logs:', temporary_database.logs())
 
         dump(
             from_=anonymise_db_connection_string,

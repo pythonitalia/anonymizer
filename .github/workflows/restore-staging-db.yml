@@ -42,9 +42,7 @@ jobs:
           echo "::set-output name=username::$USERNAME"
         env:
           SECRET_ID: ${{ secrets.STAGING_RDS_CREDENTIALS_SECRET_ID }}
-      - run: |
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends postgresql-client
+
       - uses: actions/checkout@v3
       - name: Install poetry
         run: pipx install poetry
@@ -61,18 +59,12 @@ jobs:
         run: while ! pg_isready -h 127.0.0.1 -p 7777; do sleep 1; done;
 
       - name: Restore PyCon Backend database
-        run: |
-          poetry run python main.py download
-          psql -c "DROP DATABASE IF EXISTS pycon WITH (FORCE);" --dbname=postgres://${{ steps.db-credentials.outputs.username }}:${{ steps.db-credentials.outputs.password }}@127.0.0.1:7777/pastaportobackend < dumps/pycon.sql
+        run: poetry run python main.py restore
         env:
+          DESTINATION_DB_URL: postgres://${{ steps.db-credentials.outputs.username }}:${{ steps.db-credentials.outputs.password }}@127.0.0.1:7777/pastaportobackend
           BUCKET_NAME: ${{ secrets.BUCKET_NAME }}
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
           CONFIG_FILE: pycon-config.yaml
-
-      # - name: Restore PyCon Backend database
-      #   run: |
-      #     sleep 20
-      #     docker logs --follow /restore-db
 
       - name: Restore Users Backend database
         run: poetry run python main.py restore
