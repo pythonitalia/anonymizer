@@ -63,7 +63,7 @@ jobs:
       - name: Restore PyCon Backend database
         run: |
           poetry run python main.py download
-          psql -c "DROP DATABASE IF EXISTS pycon WITH (FORCE);" -f /dumps/pycon.sql --dbname=postgres://${{ steps.db-credentials.outputs.username }}:${{ steps.db-credentials.outputs.password }}@127.0.0.1:7777/pastaportobackend
+          psql -c "DROP DATABASE IF EXISTS pycon WITH (FORCE);" -f dumps/pycon.sql --dbname=postgres://${{ steps.db-credentials.outputs.username }}:${{ steps.db-credentials.outputs.password }}@127.0.0.1:7777/pastaportobackend
         env:
           BUCKET_NAME: ${{ secrets.BUCKET_NAME }}
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
