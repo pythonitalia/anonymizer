@@ -225,8 +225,6 @@ def restore(to: str | None = None, name: str | None = None):
     if not name:
         name = config['upload']['name']
 
-    print(f"=> Starting restore ({name})")
-
     if not Path(f'dumps/{name}.sql').exists():
         print(f"=> Downloading latest dump")
         download(name)
@@ -239,6 +237,8 @@ def restore(to: str | None = None, name: str | None = None):
     transformers_folder = str(Path('transformers').resolve())
 
     dbname = config['destination']['name']
+
+    print(f"=> Starting restore ({name})")
 
     docker_client.containers.run(
         f"postgres:{psql_version}",

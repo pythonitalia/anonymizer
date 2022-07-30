@@ -61,7 +61,7 @@ jobs:
       - name: Restore PyCon Backend database
         run: poetry run python main.py restore
         env:
-          DESTINATION_DB_URL: postgres://${{ steps.db-credentials.outputs.username }}:${{ steps.db-credentials.outputs.password }}@127.0.0.1:7777/template1
+          DESTINATION_DB_URL: postgres://${{ steps.db-credentials.outputs.username }}:${{ steps.db-credentials.outputs.password }}@127.0.0.1:7777/pastaportobackend
           BUCKET_NAME: ${{ secrets.BUCKET_NAME }}
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
           CONFIG_FILE: pycon-config.yaml
@@ -69,15 +69,15 @@ jobs:
       - name: Restore Users Backend database
         run: poetry run python main.py restore
         env:
-          DESTINATION_DB_URL: postgres://${{ steps.db-credentials.outputs.username }}:${{ steps.db-credentials.outputs.password }}@127.0.0.1:7777/template1
+          DESTINATION_DB_URL: postgres://${{ steps.db-credentials.outputs.username }}:${{ steps.db-credentials.outputs.password }}@127.0.0.1:7777/pastaportobackend
           BUCKET_NAME: ${{ secrets.BUCKET_NAME }}
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
           CONFIG_FILE: users-config.yaml
 
-      - name: Restore Asssociation Backend database
+      - name: Restore Association Backend database
         run: poetry run python main.py restore
         env:
-          DESTINATION_DB_URL: postgres://${{ steps.db-credentials.outputs.username }}:${{ steps.db-credentials.outputs.password }}@127.0.0.1:7777/template1
+          DESTINATION_DB_URL: postgres://${{ steps.db-credentials.outputs.username }}:${{ steps.db-credentials.outputs.password }}@127.0.0.1:7777/pastaportobackend
           BUCKET_NAME: ${{ secrets.BUCKET_NAME }}
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
           CONFIG_FILE: association-config.yaml
