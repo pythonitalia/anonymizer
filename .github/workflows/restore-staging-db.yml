@@ -68,7 +68,7 @@ jobs:
 
       - name: Restore PyCon Backend database
         run: |
-          sleep 5
+          sleep 10
           docker logs --follow /restore-db
 
       - name: Restore Users Backend database
