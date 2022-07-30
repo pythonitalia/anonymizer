@@ -129,6 +129,7 @@ def download(dump_name: str):
         f'{dump_name}.sql',
         dest_file
     )
+    print(f"=> Download complete. Decrypting file.")
 
     fernet = Fernet(os.environ['ENCRYPTION_KEY'])
     with open(dest_file, "rb") as file:
@@ -138,6 +139,8 @@ def download(dump_name: str):
 
     with open(dest_file, "wb") as file:
         file.write(decrypted_data)
+
+    print(f"=> Dump downloaded & ready.")
 
 
 @app.command()
