@@ -118,7 +118,7 @@ def upload(dump_name: str):
 
 
 @app.command()
-def download(dump_name: str):
+def download(dump_name: str | None = None):
     config = _read_config()
     bucket = config['upload']['bucket']
 
