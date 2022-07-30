@@ -57,7 +57,13 @@ jobs:
       - name: Wait for tunnel
         timeout-minutes: 10
         run: while ! pg_isready -h 127.0.0.1 -p 7777; do sleep 1; done;
-
+      - name: Setup upterm session
+        uses: lhotari/action-upterm@v1
+        with:
+          ## limits ssh access and adds the ssh public key for the user which triggered the workflow
+          limit-access-to-actor: true
+          ## limits ssh access and adds the ssh public keys of the listed GitHub users
+          limit-access-to-users: marcoacierno
       - name: Restore PyCon Backend database
         run: poetry run python main.py restore
         env:
