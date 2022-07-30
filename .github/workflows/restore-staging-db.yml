@@ -67,7 +67,9 @@ jobs:
           CONFIG_FILE: pycon-config.yaml
 
       - name: Restore PyCon Backend database
-        run: docker logs --follow /restore-db
+        run: |
+          sleep 5
+          docker logs --follow /restore-db
 
       - name: Restore Users Backend database
         run: poetry run python main.py restore
