@@ -117,10 +117,13 @@ def upload(dump_name: str):
     print("=> Upload done to S3")
 
 
+@app.command()
 def download(dump_name: str):
-
     config = _read_config()
     bucket = config['upload']['bucket']
+
+    if not dump_name:
+        dump_name = config['upload']['name']
 
     s3 = boto3.client('s3')
     dest_file = f'dumps/{dump_name}.sql'
