@@ -30,6 +30,7 @@ skip:
 transformers:
   - proposals.sql
   - grants.sql
+  - conference.sql
 
 upload:
   name: pycon
