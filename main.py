@@ -244,18 +244,21 @@ def restore(to: str | None = None, name: str | None = None):
 
     print(f"=> Starting restore ({name})")
 
-    docker_client.containers.run(
-        f"postgres:{psql_version}",
-        f'psql -c "DROP DATABASE IF EXISTS {dbname} WITH (FORCE);" -f /dumps/{name}.sql --dbname={connection_string}',
-        auto_remove=True,
-        name='restore-db',
-        network_mode='host',
-        volumes={
-            dumps_folder: {'bind': '/dumps/', 'mode': 'rw'},
-            transformers_folder: {'bind': '/transformers/', 'mode': 'rw'}
-        }
-    )
-
+    restore_db = None
+    try:
+        restore_db = docker_client.containers.run(
+            f"postgres:{psql_version}",
+            f'psql -c "DROP DATABASE IF EXISTS {dbname} WITH (FORCE);" -f /dumps/{name}.sql --dbname={connection_string}',
+            auto_remove=True,
+            network_mode='host',
+            volumes={
+                dumps_folder: {'bind': '/dumps/', 'mode': 'rw'},
+                transformers_folder: {'bind': '/transformers/', 'mode': 'rw'}
+            }
+        )
+    finally:
+        if restore_db:
+            restore_db.remove(force=True)
 
 if __name__ == '__main__':
     app()
