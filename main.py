@@ -30,12 +30,16 @@ class ConfigDict(TypedDict):
 
 
 CACHED_CONFIG: ConfigDict | None = None
-CONFIG_FILE = os.environ['CONFIG_FILE'] or 'config.yaml'
+CONFIG_FILE = os.environ.get('CONFIG_FILE', '')
 
 def _read_config() -> ConfigDict:
     global CACHED_CONFIG
+    global CONFIG_FILE
 
     if not CACHED_CONFIG:
+        if not CONFIG_FILE:
+            raise ValueError("Empty CONFIG_FILE")
+
         with open(f'./{CONFIG_FILE}') as stream:
             CACHED_CONFIG = cast(ConfigDict, yaml.safe_load(stream))
 
@@ -217,7 +221,7 @@ def anonymise():
 
 
 @app.command()
-def restore(to: str | None = None, name: str | None = None):
+def restore(to: str | None = None, name: str | None = None, *, force_download: bool = False):
     config = _read_config()
     psql_version = config['destination']['version']
 
@@ -229,7 +233,7 @@ def restore(to: str | None = None, name: str | None = None):
     if not name:
         name = config['upload']['name']
 
-    if not Path(f'dumps/{name}.sql').exists():
+    if force_download or not Path(f'dumps/{name}.sql').exists():
         print(f"=> Downloading latest dump")
         download(name)
     else:
@@ -243,22 +247,49 @@ def restore(to: str | None = None, name: str | None = None):
     dbname = config['destination']['name']
 
     print(f"=> Starting restore ({name})")
+    print("connection_string", connection_string)
 
-    restore_db = None
     try:
-        restore_db = docker_client.containers.run(
+        docker_client.containers.run(
             f"postgres:{psql_version}",
             f'psql -c "DROP DATABASE IF EXISTS {dbname} WITH (FORCE);" -f /dumps/{name}.sql --dbname={connection_string}',
             auto_remove=True,
             network_mode='host',
+            name="restore-db",
             volumes={
                 dumps_folder: {'bind': '/dumps/', 'mode': 'rw'},
                 transformers_folder: {'bind': '/transformers/', 'mode': 'rw'}
             }
         )
+        # print('Logs', logs)
     finally:
-        if restore_db:
+        try:
+            restore_db = docker_client.containers.get("restore-db")
             restore_db.remove(force=True)
+        except docker.errors.NotFound:
+            pass
+
+
+SERVICES = [
+    ('pycon-config.yaml', "postgresql://pycon:pycon@127.0.0.1:15501/restoreuser"),
+    ('users-config.yaml', "postgresql://users:users@127.0.0.1:15500/restoreuser"),
+    ('association-config.yaml', "postgresql://association:association@127.0.0.1:15503/restoreuser"),
+]
+
+@app.command()
+def restore_local(*, force_download: bool = False):
+    global CONFIG_FILE
+    global CACHED_CONFIG
+
+    for config, url in SERVICES:
+        CONFIG_FILE = config
+        CACHED_CONFIG = None
+
+        restore(
+            to=url,
+            force_download=force_download
+        )
+
 
 if __name__ == '__main__':
     app()
