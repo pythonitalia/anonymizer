@@ -247,7 +247,6 @@ def restore(to: str | None = None, name: str | None = None, *, force_download: b
     dbname = config['destination']['name']
 
     print(f"=> Starting restore ({name})")
-    print("connection_string", connection_string)
 
     try:
         docker_client.containers.run(
