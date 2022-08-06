@@ -1,3 +1,4 @@
+import json
 import os
 from time import sleep
 from typing import Literal, TypedDict, cast
@@ -269,6 +270,18 @@ def restore(to: str | None = None, name: str | None = None, *, force_download: b
             pass
 
 
+def create_staging_services_list(connection_data: dict):
+    username = connection_data['username']
+    password = connection_data['password']
+
+    url = f'postgresql://{username}:{password}@127.0.0.1:7777/pastaportobackend'
+    return [
+        ('pycon-config.yaml', url),
+        ('users-config.yaml', url),
+        ('association-config.yaml', url),
+    ]
+
+
 SERVICES = [
     ('pycon-config.yaml', "postgresql://pycon:pycon@127.0.0.1:15501/restoreuser"),
     ('users-config.yaml', "postgresql://users:users@127.0.0.1:15500/restoreuser"),
@@ -281,6 +294,28 @@ def restore_local(*, force_download: bool = False):
     global CACHED_CONFIG
 
     for config, url in SERVICES:
+        CONFIG_FILE = config
+        CACHED_CONFIG = None
+
+        restore(
+            to=url,
+            force_download=force_download
+        )
+
+@app.command()
+def restore_staging(*, force_download: bool = False):
+    global CONFIG_FILE
+    global CACHED_CONFIG
+
+    client = boto3.client('secretsmanager')
+    secret = client.get_secret_value(
+        SecretId='/pythonit/pastaporto/common/database'
+    )
+    connection_data = json.loads(secret['SecretString'])
+
+    STAGING_SERVICES = create_staging_services_list(connection_data)
+
+    for config, url in STAGING_SERVICES:
         CONFIG_FILE = config
         CACHED_CONFIG = None
 
