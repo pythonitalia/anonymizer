@@ -56,7 +56,11 @@ DESTINATION_DB_URL=postgresql://association:association@127.0.0.1:15503/restoreu
 
 ## Restore staging DB
 
-TODO
+Run
+
+```shell
+poetry run python main.py restore-staging
+```
 
 ## Notes
 
