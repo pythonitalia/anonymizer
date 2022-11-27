@@ -9,4 +9,5 @@ destination:
 
 upload:
   name: association
+  source: $UPLOAD_SOURCE
   bucket: $BUCKET_NAME

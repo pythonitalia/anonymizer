@@ -1,0 +1,11 @@
+dumps/
+.github/
+README.md
+*.pyo
+**/__pycache__/**
+.env
+**/__pycache__
+.git/
+.virtualenv/
+.gitignore
+.dockerignore

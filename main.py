@@ -1,3 +1,4 @@
+import subprocess
 import json
 import os
 from time import sleep
@@ -10,6 +11,11 @@ from rich import print
 import boto3
 from cryptography.fernet import Fernet
 import dsnparse
+from azure.identity import DefaultAzureCredential
+from azure.keyvault.secrets import SecretClient
+from azure.storage.blob import BlobServiceClient
+from pathlib import Path
+from azure.mgmt.containerinstance import ContainerInstanceManagementClient
 
 app = typer.Typer()
 
@@ -48,13 +54,15 @@ def _read_config() -> ConfigDict:
         CACHED_CONFIG['source']['uri'] = resolve_env(CACHED_CONFIG['source']['uri'])
         CACHED_CONFIG['upload']['name'] = resolve_env(CACHED_CONFIG['upload']['name'])
         CACHED_CONFIG['upload']['bucket'] = resolve_env(CACHED_CONFIG['upload']['bucket'])
+        CACHED_CONFIG['upload']['source'] = resolve_env(CACHED_CONFIG['upload']['source'])
 
     return CACHED_CONFIG
 
 def resolve_env(variable: str) -> str:
     try:
         if variable_at := variable.index('$') == 0:
-            return os.environ[variable[variable_at:]]
+            var_name = variable[variable_at:]
+            return os.environ[var_name]
     except ValueError:
         pass
     except KeyError:
@@ -125,21 +133,38 @@ def upload(dump_name: str):
 @app.command()
 def download(dump_name: str | None = None):
     config = _read_config()
+    source = config['upload']['source']
     bucket = config['upload']['bucket']
 
     if not dump_name:
         dump_name = config['upload']['name']
 
-    s3 = boto3.client('s3')
     dest_file = f'dumps/{dump_name}.sql'
-    s3.download_file(
-        bucket,
-        f'{dump_name}.sql',
-        dest_file
-    )
+    file_name = f'{dump_name}.sql'
+
+    Path("dumps").mkdir(exist_ok=True)
+    encryption_key = os.environ.get('ENCRYPTION_KEY', '')
+
+    if source == 's3':
+        s3 = boto3.client('s3')
+        s3.download_file(
+            bucket,
+            file_name,
+            dest_file
+        )
+    elif source == 'azure':
+        account_url = f"https://{bucket}.blob.core.windows.net"
+        blob_service_client = BlobServiceClient(account_url, credential=DefaultAzureCredential())
+        blob_client = blob_service_client.get_blob_client(container='data', blob=file_name)
+        with open(dest_file, 'wb') as open_file:
+            open_file.write(blob_client.download_blob().readall())
+
+        vault = get_azure_vault()
+        encryption_key = vault.get_secret('encryption-key').value
+
     print(f"=> Download complete. Decrypting file.")
 
-    fernet = Fernet(os.environ['ENCRYPTION_KEY'])
+    fernet = Fernet(encryption_key)
     with open(dest_file, "rb") as file:
         encrypted_data = file.read()
 
@@ -240,8 +265,6 @@ def restore(to: str | None = None, name: str | None = None, *, force_download: b
     else:
         print(f"=> Re-using already downloaded dump")
 
-    docker_client = docker.from_env()
-
     dumps_folder = str(Path('dumps').resolve())
     transformers_folder = str(Path('transformers').resolve())
 
@@ -250,19 +273,29 @@ def restore(to: str | None = None, name: str | None = None, *, force_download: b
     print(f"=> Starting restore ({name})")
 
     try:
-        docker_client.containers.run(
-            f"postgres:{psql_version}",
-            f'psql -c "DROP DATABASE IF EXISTS {dbname} WITH (FORCE);" -f /dumps/{name}.sql --dbname={connection_string}',
-            auto_remove=True,
-            network_mode='host',
-            name="restore-db",
-            volumes={
-                dumps_folder: {'bind': '/dumps/', 'mode': 'rw'},
-                transformers_folder: {'bind': '/transformers/', 'mode': 'rw'}
-            }
-        )
+        if is_azure():
+            subprocess.run(
+                f'psql -c "DROP DATABASE IF EXISTS {dbname} WITH (FORCE);" -f /app/dumps/{name}.sql --dbname={connection_string}',
+                shell=True
+            )
+        else:
+            docker_client = docker.from_env()
+            docker_client.containers.run(
+                f"postgres:{psql_version}",
+                f'psql -c "DROP DATABASE IF EXISTS {dbname} WITH (FORCE);" -f /dumps/{name}.sql --dbname={connection_string}',
+                auto_remove=True,
+                network_mode='host',
+                name="restore-db",
+                volumes={
+                    dumps_folder: {'bind': '/dumps/', 'mode': 'rw'},
+                    transformers_folder: {'bind': '/transformers/', 'mode': 'rw'}
+                }
+            )
         # print('Logs', logs)
     finally:
+        if is_azure():
+            return
+
         try:
             restore_db = docker_client.containers.get("restore-db")
             restore_db.remove(force=True)
@@ -279,6 +312,22 @@ def create_staging_services_list(connection_data: dict):
         ('pycon-config.yaml', url),
         ('users-config.yaml', url),
         ('association-config.yaml', url),
+    ]
+
+
+def create_azure_staging_services_list():
+    vault = get_azure_vault()
+
+    db_username = vault.get_secret('db-root-username').value
+    db_password = vault.get_secret('db-root-password').value
+    host = vault.get_secret('host').value
+
+    connection_url = f"postgresql://{db_username}:{db_password}@{host}:5432/postgres?sslmode=require"
+
+    return [
+        ('pycon-config.yaml', connection_url),
+        ('users-config.yaml', connection_url),
+        ('association-config.yaml', connection_url),
     ]
 
 
@@ -302,6 +351,7 @@ def restore_local(*, force_download: bool = False):
             force_download=force_download
         )
 
+
 @app.command()
 def restore_staging(*, force_download: bool = False):
     global CONFIG_FILE
@@ -323,6 +373,56 @@ def restore_staging(*, force_download: bool = False):
             to=url,
             force_download=force_download
         )
+
+
+@app.command()
+def restore_azure_staging_local():
+    global CONFIG_FILE
+    global CACHED_CONFIG
+
+    # azure doesn't support docker-in-docker
+    # so we start a local postgres server in the container
+    subprocess.run(
+        'service postgresql start',
+        shell=True,
+    )
+
+    staging_services = create_azure_staging_services_list()
+
+    for config, url in staging_services:
+        CONFIG_FILE = config
+        CACHED_CONFIG = None
+
+        restore(
+            to=url,
+            force_download=True
+        )
+
+    print('Done!')
+
+
+@app.command()
+def restore_azure_staging():
+    print('=> Starting restore job on Azure ACI...')
+
+    aci_client = ContainerInstanceManagementClient(
+        credential=DefaultAzureCredential(),
+        subscription_id=os.getenv('AZURE_SUBSCRIPTION_ID')
+    )
+    poll = aci_client.container_groups.begin_start("anonymizer", "anonymizer-restore-data-job")
+    poll.wait()
+
+    print(f'=> Restore completed! Status: {poll.status()}')
+
+
+def get_azure_vault():
+    return SecretClient(vault_url="https://staging-database.vault.azure.net/", credential=DefaultAzureCredential())
+
+
+def is_azure():
+    config = _read_config()
+    source = config['upload']['source']
+    return source == 'azure'
 
 
 if __name__ == '__main__':
