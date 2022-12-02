@@ -2,7 +2,6 @@ UPDATE grants_grant
 SET
     name = random_first_name(),
     full_name = random_first_name() || ' ' || random_last_name(),
-    email = random_email(),
     occupation = 'other',
     grant_type = 'diversity',
     python_usage = random_text(),
