@@ -34,4 +34,5 @@ transformers:
 
 upload:
   name: pycon
+  source: $UPLOAD_SOURCE
   bucket: $BUCKET_NAME

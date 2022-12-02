@@ -12,4 +12,5 @@ transformers:
 
 upload:
   name: users
+  source: $UPLOAD_SOURCE
   bucket: $BUCKET_NAME
