@@ -2,7 +2,7 @@ import subprocess
 import json
 import os
 from time import sleep
-from typing import Literal, TypedDict, cast
+from typing import Literal, Optional, TypedDict, cast
 import typer
 import yaml
 import docker
@@ -71,7 +71,7 @@ def resolve_env(variable: str) -> str:
     return variable
 
 @app.command()
-def dump(from_: str | None=None, transform: bool=True, dump_name: str='dump'):
+def dump(from_: Optional[str] =None, transform: bool=True, dump_name: str='dump'):
     config = _read_config()
     psql_version = config['source']['version']
 
@@ -131,7 +131,7 @@ def upload(dump_name: str):
 
 
 @app.command()
-def download(dump_name: str | None = None):
+def download(dump_name: Optional[str]  = None):
     config = _read_config()
     source = config['upload']['source']
     bucket = config['upload']['bucket']
@@ -247,7 +247,7 @@ def anonymise():
 
 
 @app.command()
-def restore(to: str | None = None, name: str | None = None, *, force_download: bool = False):
+def restore(to: Optional[str]  = None, name: Optional[str]  = None, *, force_download: bool = False):
     config = _read_config()
     psql_version = config['destination']['version']
 
